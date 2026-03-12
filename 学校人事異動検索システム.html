@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学校人事異動検索システム</title>
+<style>
+
+
+:root {
+  --primary: #1a4f6e;
+  --primary-light: #2a6f96;
+  --accent: #e8a020;
+  --accent-light: #f5c060;
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --border: #d0dce8;
+  --text: #1a2634;
+  --text-muted: #5a7088;
+  --tab-active: #1a4f6e;
+  --tab-inactive: #8fa8bc;
+  --row-hover: #eef4fa;
+  --mark: #fff3c0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, #0d3350 100%);
+  color: white;
+  padding: 18px 28px 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+}
+.header h1 {
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Upload button */
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.upload-btn:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.6); }
+
+/* Sheet tabs */
+.sheet-tabs {
+  display: flex;
+  gap: 0;
+  margin-top: 4px;
+}
+.sheet-tab {
+  padding: 9px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.15s;
+  color: rgba(255,255,255,0.55);
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.sheet-tab:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); }
+.sheet-tab.active {
+  background: var(--bg);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 -2px 0 var(--accent) inset;
+}
+
+/* ── Main layout ── */
+.main {
+  display: flex;
+  gap: 16px;
+  padding: 16px 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 230px;
+  flex-shrink: 0;
+}
+.filter-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.filter-card + .filter-card { margin-top: 12px; }
+
+.filter-header {
+  background: var(--primary);
+  color: white;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.filter-header .actions {
+  display: flex;
+  gap: 6px;
+}
+.filter-header button {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.filter-header button:hover { background: rgba(255,255,255,0.28); }
+
+.filter-body { padding: 8px 10px; }
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.filter-item:hover { background: var(--row-hover); }
+.filter-item label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  flex: 1;
+  font-size: 13px;
+}
+.filter-item input[type=checkbox] {
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.filter-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-weight: 500;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ── Content area ── */
+.content { flex: 1; min-width: 0; }
+
+/* Search bar */
+.search-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  flex-wrap: wrap;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 140px;
+}
+.search-field label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.search-field input {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  background: var(--bg);
+}
+
+.search-mode-field { justify-content: flex-start; flex-direction: column; align-items: flex-start; }
+.search-mode-toggle { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+.toggle-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; min-height: 28px; font-weight: normal; }
+.toggle-label input[type=radio] { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; font-size: initial !important; flex-shrink: 0; }
+.search-field input:focus { border-color: var(--primary-light); background: white; }
+.clear-btn {
+  border: 1.5px solid var(--border);
+  background: white;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.clear-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px;
+}
+.stats-info { font-size: 13px; color: var(--text-muted); }
+.stats-info strong { color: var(--primary); font-weight: 700; font-size: 16px; }
+.export-btn {
+  border: 1.5px solid var(--accent);
+  background: white;
+  color: #8a5a00;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.export-btn:hover { background: var(--accent); color: white; }
+
+/* Table */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  background: var(--primary);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--row-hover); }
+tbody td { padding: 9px 12px; vertical-align: top; line-height: 1.5; }
+td.col-role { white-space: nowrap; }
+td.col-type { white-space: nowrap; }
+td.col-name { font-weight: 500; white-space: nowrap; }
+td.col-note { color: var(--text-muted); font-size: 12px; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-role { background: #e8f0f8; color: #1a4f6e; }
+.badge-type-採用 { background: #e8f8ee; color: #1a6e3a; }
+.badge-type-転任 { background: #e8eef8; color: #1a3a6e; }
+.badge-type-退職 { background: #f8ece8; color: #6e2a1a; }
+.badge-type-役職定年 { background: #f8f4e8; color: #6e5a1a; }
+.badge-type-昇任 { background: #f0e8f8; color: #4a1a6e; }
+
+mark.hl { background: var(--mark); border-radius: 2px; padding: 0 1px; }
+
+/* Empty states */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.empty-state p { font-size: 14px; }
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+.pg-btn {
+  border: 1.5px solid var(--border);
+  background: white;
+  color: var(--text);
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.pg-btn:hover { border-color: var(--primary); color: var(--primary); }
+.pg-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: 700; }
+.pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pg-ellipsis { color: var(--text-muted); padding: 0 2px; }
+
+/* Loading overlay */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,20,35,0.55);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+}
+.loading-overlay.show { display: flex; }
+.loading-box {
+  background: white;
+  border-radius: 14px;
+  padding: 30px 40px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+}
+.spinner {
+  width: 38px; height: 38px;
+  border: 3.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast {
+  display: none;
+  position: fixed;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  background: #c0392b;
+  color: white;
+  padding: 10px 22px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* Drag overlay */
+.drag-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,79,110,0.15);
+  border: 4px dashed var(--primary-light);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.drag-overlay.show { display: flex; }
+.drag-overlay p { font-size: 22px; font-weight: 700; color: var(--primary); background: white; padding: 16px 32px; border-radius: 12px; }
+
+@media (max-width: 768px) {
+  .main { flex-direction: column; }
+  .sidebar { width: 100%; }
+}
+
+/* ── iPhone / Mobile 対応 ── */
+/* iOSのズーム防止: input/selectは16px以上 */
+input, select, textarea { font-size: 16px !important; }
+/* タップ領域拡大 */
+.filter-item { padding: 8px 6px; min-height: 44px; }
+.filter-item input[type=checkbox] { width: 18px; height: 18px; }
+.filter-header button { min-height: 36px; padding: 6px 12px; }
+button, .upload-btn, .clear-btn, .export-btn { min-height: 44px; }
+/* タブ */
+.tab-btn { min-height: 44px; padding: 10px 18px; }
+
+@media (max-width: 600px) {
+  body { font-size: 14px; }
+  .header { padding: 10px 12px 6px; }
+  h1 { font-size: 16px; }
+  .main { padding: 8px; gap: 8px; flex-direction: column; }
+  .sidebar { width: 100%; }
+  /* 検索バーを縦並びに */
+  .search-bar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; }
+  .search-field { min-width: unset; }
+  .search-field input { font-size: 16px; padding: 10px 12px; }
+  .clear-btn { width: 100%; justify-content: center; }
+  /* テーブルのフォントを少し小さく */
+  table { font-size: 12px; }
+  thead th { padding: 8px 8px; font-size: 11px; }
+  td { padding: 8px 8px; }
+  /* フィルターカードを折りたたみ可能に */
+  .filter-body { max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* CSVボタン */
+  .export-btn { font-size: 13px; }
+  /* バッジを小さく */
+  .badge { font-size: 10px; padding: 2px 6px; }
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <p style="color:#1a4f6e;font-weight:600;">読み込み中...</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="drag-overlay" id="dragOverlay"><p>ここにドロップ</p></div>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="onFileSelect(event)">
+
+<header class="header" id="mainHeader">
+  <div class="header-top">
+    <h1>学校人事異動検索システム</h1>
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()" id="uploadBtn">
+      <span id="uploadLabel">Excelを読み込む</span>
+    </button>
+  </div>
+  <div class="sheet-tabs" id="sheetTabs"></div>
+</header>
+
+<div class="main">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="filter-card">
+      <div class="filter-header">
+        <span>役　職</span>
+        <div class="actions">
+          <button onclick="selectAll('role')">全選択</button>
+          <button onclick="clearAll('role')">全解除</button>
+        </div>
+      </div>
+      <div class="filter-body" id="roleFilters"></div>
+    </div>
+
+    <div class="filter-card" style="margin-top:12px">
+      <div class="filter-header">
+        <span>異動区分</span>
+        <div class="actions">
+          <button onclick="selectAll('type')">全選択</button>
+          <button onclick="clearAll('type')">全解除</button>
+        </div>
+      </div>
+      <div class="filter-body" id="typeFilters"></div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <div class="content">
+    <div class="search-bar">
+      <div class="search-field">
+        <label>氏　名</label>
+        <input type="text" id="qName" placeholder="例：山田" oninput="doSearch()">
+      </div>
+      <div class="search-field">
+        <label>学校名</label>
+        <input type="text" id="qSchool" placeholder="例：高松市立" oninput="doSearch()">
+      </div>
+      <div class="search-field">
+        <label>現　職</label>
+        <input type="text" id="qPost" placeholder="例：教頭" oninput="doSearch()">
+      </div>
+      <div class="search-field search-mode-field">
+        <label>学校名・現職の検索条件</label>
+        <div class="search-mode-toggle">
+          <label class="toggle-label"><input type="radio" name="schoolPostMode" value="and" checked onchange="doSearch()"> AND（両方含む）</label>
+          <label class="toggle-label"><input type="radio" name="schoolPostMode" value="or" onchange="doSearch()"> OR（どちらか含む）</label>
+        </div>
+      </div>
+      <button class="clear-btn" onclick="clearSearch()">クリア</button>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stats-info">
+        表示件数：<strong id="countLabel">－</strong>
+      </div>
+      <button class="export-btn" onclick="exportCSV()"> CSV出力</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th>役　職</th>
+              <th>区　分</th>
+              <th>学　校　名</th>
+              <th>現　職　名</th>
+              <th>氏　名</th>
+              <th>備　考</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state" style="display:none">
+        
+        <p id="emptyMsg">Excelファイルを読み込んでください</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Built-in data ──
+const BUILTIN = {};
+
+// ── State ──
+let SHEETS = {};       // {sheetName: [records]}
+let currentSheet = '';
+let filtered = [];
+let checkedRoles = new Set();
+let checkedTypes = new Set();
+
+// ── Init ──
+function init() {
+  SHEETS = {};
+  currentSheet = '';
+  buildSheetTabs();
+  document.getElementById('roleFilters').innerHTML = '';
+  document.getElementById('typeFilters').innerHTML = '';
+  showEmpty('Excelファイルを読み込んでください');
+}
+
+function loadData(sheetsData, label) {
+  SHEETS = sheetsData;
+  const sheetNames = Object.keys(SHEETS);
+  if (sheetNames.length === 0) { showToast('シートが見つかりません'); return; }
+
+  buildSheetTabs();
+  document.getElementById('uploadLabel').textContent = label;
+
+  // Switch to first sheet
+  switchSheet(sheetNames[0]);
+}
+
+// ── Sheet tabs ──
+function buildSheetTabs() {
+  const container = document.getElementById('sheetTabs');
+  container.innerHTML = '';
+  const names = Object.keys(SHEETS);
+  names.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'sheet-tab' + (name === currentSheet ? ' active' : '');
+    btn.textContent = name;
+    btn.onclick = () => switchSheet(name);
+    container.appendChild(btn);
+  });
+}
+
+function switchSheet(name) {
+  currentSheet = name;
+  // Update tab UI
+  document.querySelectorAll('.sheet-tab').forEach(b => {
+    b.classList.toggle('active', b.textContent === name);
+  });
+  // Reset filters
+  const records = SHEETS[name] || [];
+  checkedRoles = new Set(records.map(r => r.role));
+  checkedTypes = new Set(records.map(r => r.move_type));
+  buildFilters();
+  doSearch();
+}
+
+// ── Filters ──
+function buildFilters() {
+  const records = SHEETS[currentSheet] || [];
+  const roleCounts = {}, typeCounts = {};
+  records.forEach(r => {
+    roleCounts[r.role] = (roleCounts[r.role] || 0) + 1;
+    typeCounts[r.move_type] = (typeCounts[r.move_type] || 0) + 1;
+  });
+
+  renderFilterGroup('roleFilters', roleCounts, checkedRoles, 'role');
+  renderFilterGroup('typeFilters', typeCounts, checkedTypes, 'type');
+}
+
+function renderFilterGroup(containerId, counts, checkedSet, kind) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  Object.entries(counts).forEach(([val, cnt]) => {
+    const item = document.createElement('div');
+    item.className = 'filter-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = checkedSet.has(val);
+    cb.id = kind + '_' + val;
+    cb.onchange = () => {
+      if (cb.checked) checkedSet.add(val); else checkedSet.delete(val);
+      doSearch();
+    };
+    const lbl = document.createElement('label');
+    lbl.htmlFor = cb.id;
+    lbl.textContent = val;
+    const badge = document.createElement('span');
+    badge.className = 'filter-count';
+    badge.textContent = cnt;
+    item.appendChild(cb);
+    lbl.appendChild(badge);
+    item.appendChild(lbl);
+    container.appendChild(item);
+  });
+}
+
+function selectAll(kind) {
+  const records = SHEETS[currentSheet] || [];
+  if (kind === 'role') { records.forEach(r => checkedRoles.add(r.role)); }
+  else { records.forEach(r => checkedTypes.add(r.move_type)); }
+  buildFilters(); doSearch();
+}
+
+function clearAll(kind) {
+  if (kind === 'role') checkedRoles.clear();
+  else checkedTypes.clear();
+  buildFilters(); doSearch();
+}
+
+// ── Search ──
+function norm(s) { return s ? s.replace(/\s/g, '').toLowerCase() : ''; }
+
+function doSearch() {
+  const qName = document.getElementById('qName').value.trim();
+  const qSchool = document.getElementById('qSchool').value.trim();
+  const qPost = document.getElementById('qPost').value.trim();
+  const records = SHEETS[currentSheet] || [];
+
+  if (records.length === 0) {
+    filtered = [];
+    render(qName, qSchool, qPost);
+    return;
+  }
+
+  filtered = records.filter(r => {
+    if (!checkedRoles.has(r.role)) return false;
+    if (!checkedTypes.has(r.move_type)) return false;
+    if (qName && !norm(r.name).includes(norm(qName))) return false;
+    if (qSchool || qPost) {
+      const mode = (document.querySelector('input[name=schoolPostMode]:checked') || {value:'and'}).value;
+      const matchSchool = qSchool ? norm(r.school).includes(norm(qSchool)) : false;
+      const matchPost   = qPost   ? norm(r.current_post).includes(norm(qPost)) : false;
+      if (mode === 'and') {
+        if (qSchool && !matchSchool) return false;
+        if (qPost   && !matchPost)   return false;
+      } else {
+        const hasSchool = !!qSchool, hasPost = !!qPost;
+        if (hasSchool && hasPost  && !matchSchool && !matchPost) return false;
+        if (hasSchool && !hasPost && !matchSchool) return false;
+        if (!hasSchool && hasPost && !matchPost)   return false;
+      }
+    }
+    return true;
+  });
+  render(qName, qSchool, qPost);
+}
+
+function clearSearch() {
+  document.getElementById('qName').value = '';
+  document.getElementById('qSchool').value = '';
+  document.getElementById('qPost').value = '';
+  selectAll('role');
+  selectAll('type');
+}
+
+// ── Render ──
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function hl(text, q) {
+  if (!q) return esc(text);
+  try {
+    const re = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+    return esc(text).replace(re, m => `<mark class="hl">${m}</mark>`);
+  } catch { return esc(text); }
+}
+
+function render(qName, qSchool, qPost) {
+  const tbody = document.getElementById('tableBody');
+  const empty = document.getElementById('emptyState');
+  const count = document.getElementById('countLabel');
+
+  if (Object.keys(SHEETS).length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('emptyMsg').textContent = 'Excelファイルを読み込んでください';
+    count.textContent = '－';
+    return;
+  }
+
+  count.textContent = filtered.length + ' 件';
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('emptyMsg').textContent = '該当するデータが見つかりませんでした';
+    return;
+  }
+
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td class="col-role"><span class="badge badge-role">${esc(r.role)}</span></td>
+      <td class="col-type"><span class="badge badge-type-${esc(r.move_type)}">${esc(r.move_type)}</span></td>
+      <td>${hl(r.school, qSchool)}</td>
+      <td>${hl(r.current_post, qPost)}</td>
+      <td class="col-name">${hl(r.name, qName)}</td>
+      <td class="col-note">${esc(r.note)}</td>
+    </tr>`).join('');
+}
+
+
+function showEmpty(msg) {
+  document.getElementById('tableBody').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('emptyMsg').textContent = msg;
+  document.getElementById('countLabel').textContent = '－';
+}
+
+// ── CSV Export ──
+function exportCSV() {
+  if (!filtered.length) return;
+  const bom = '\uFEFF';
+  const header = ['役職','区分','学校名','現職名','氏名','備考'];
+  const rows = filtered.map(r =>
+    [r.role, r.move_type, r.school, r.current_post, r.name, r.note]
+      .map(v => '"' + (v||'').replace(/"/g,'""') + '"').join(',')
+  );
+  const csv = bom + [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${currentSheet}_人事異動_検索結果.csv`;
+  a.click();
+}
+
+// ── Custom XLSX parser (完全オフライン対応・外部ライブラリ不要) ──
+
+function parseZip(buf) {
+  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const entries = {};
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('ZIPヘッダが見つかりません');
+  const cdOffset = view.getUint32(eocd + 16, true);
+  const cdSize   = view.getUint32(eocd + 12, true);
+  const dec = new TextDecoder('utf-8');
+  let pos = cdOffset;
+  while (pos < cdOffset + cdSize) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break;
+    const method     = view.getUint16(pos + 10, true);
+    const compSize   = view.getUint32(pos + 20, true);
+    const uncompSize = view.getUint32(pos + 24, true);
+    const fnLen      = view.getUint16(pos + 28, true);
+    const exLen      = view.getUint16(pos + 30, true);
+    const cmLen      = view.getUint16(pos + 32, true);
+    const localOff   = view.getUint32(pos + 42, true);
+    const name       = dec.decode(buf.slice(pos + 46, pos + 46 + fnLen));
+    entries[name]    = { localOff, compSize, uncompSize, method };
+    pos += 46 + fnLen + exLen + cmLen;
+  }
+  return { buf, view, entries };
+}
+
+async function getEntry(zip, name) {
+  const e = zip.entries[name];
+  if (!e) return null;
+  const { buf, view } = zip;
+  if (view.getUint32(e.localOff, true) !== 0x04034b50) throw new Error('不正なローカルヘッダ: ' + name);
+  const fnLen   = view.getUint16(e.localOff + 26, true);
+  const exLen   = view.getUint16(e.localOff + 28, true);
+  const dataOff = e.localOff + 30 + fnLen + exLen;
+  const comp    = buf.slice(dataOff, dataOff + e.compSize);
+  let raw;
+  if (e.method === 0) {
+    raw = comp;
+  } else if (e.method === 8) {
+    const ds = new DecompressionStream('deflate-raw');
+    const w = ds.writable.getWriter();
+    w.write(comp); w.close();
+    const chunks = [];
+    const r = ds.readable.getReader();
+    while (true) { const {done, value} = await r.read(); if (done) break; chunks.push(value); }
+    const total = chunks.reduce((s,c) => s + c.length, 0);
+    raw = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { raw.set(c, off); off += c.length; }
+  } else {
+    throw new Error('未対応の圧縮方式: ' + e.method);
+  }
+  return new TextDecoder('utf-8').decode(raw);
+}
+
+function gbn(node, ns, local) {
+  const r = node.getElementsByTagNameNS(ns, local);
+  return r.length ? r : node.getElementsByTagName(local);
+}
+
+function parseSharedStrings(xml) {
+  if (!xml) return [];
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  return Array.from(gbn(doc, NS, 'si')).map(si => {
+    const rs = Array.from(gbn(si, NS, 'r')).flatMap(r =>
+      Array.from(gbn(r, NS, 't')).map(t => t.textContent)
+    );
+    if (rs.length) return rs.join('');
+    const ts = gbn(si, NS, 't');
+    return ts.length ? ts[0].textContent : '';
+  });
+}
+
+function parseWorkbookSheets(wbXml, relsXml) {
+  const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const NS_R    = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const NS_PKG  = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const wbDoc  = new DOMParser().parseFromString(wbXml,  'text/xml');
+  const relDoc = new DOMParser().parseFromString(relsXml, 'text/xml');
+  const rels = {};
+  Array.from(gbn(relDoc, NS_PKG, 'Relationship')).forEach(r => {
+    rels[r.getAttribute('Id')] = r.getAttribute('Target').split('/').pop();
+  });
+  return Array.from(gbn(wbDoc, NS_MAIN, 'sheet')).map(s => {
+    const rid = s.getAttributeNS(NS_R, 'id') || s.getAttribute('r:id');
+    return { name: s.getAttribute('name'), file: rels[rid] };
+  }).filter(s => s.file);
+}
+
+function colToIdx(col) {
+  let idx = 0;
+  for (let i = 0; i < col.length; i++) idx = idx * 26 + col.charCodeAt(i) - 64;
+  return idx - 1;
+}
+
+function parseWorksheet(xml, ss) {
+  if (!xml) return [];
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const rowMap = {};
+  let maxRow = 0, maxCol = 0;
+  Array.from(gbn(doc, NS, 'row')).forEach(row => {
+    const r = parseInt(row.getAttribute('r'));
+    if (!r) return;
+    maxRow = Math.max(maxRow, r);
+    const cells = {};
+    Array.from(gbn(row, NS, 'c')).forEach(c => {
+      const ref = c.getAttribute('r');
+      if (!ref) return;
+      const col = colToIdx(ref.replace(/\d+/g, ''));
+      maxCol = Math.max(maxCol, col);
+      const t = c.getAttribute('t');
+      const vs = gbn(c, NS, 'v');
+      const v = vs.length ? vs[0] : null;
+      if (!v && t !== 'inlineStr') { cells[col] = ''; return; }
+      if (t === 's') {
+        cells[col] = ss[parseInt(v.textContent)] ?? '';
+      } else if (t === 'inlineStr') {
+        const ts = gbn(c, NS, 't');
+        cells[col] = ts.length ? ts[0].textContent : '';
+      } else {
+        cells[col] = v ? v.textContent : '';
+      }
+    });
+    rowMap[r] = cells;
+  });
+  const rows = [];
+  for (let r = 1; r <= maxRow; r++) {
+    const cells = rowMap[r] || {};
+    rows.push(Array.from({length: maxCol + 1}, (_, c) => cells[c] !== undefined ? cells[c] : ''));
+  }
+  return rows;
+}
+
+async function parseExcel(buffer) {
+  const log = (msg) => { console.log('[XLSX] ' + msg); };
+  try {
+    log('parseZip 開始 size=' + buffer.length);
+    const zip = parseZip(buffer);
+    log('zip entries: ' + Object.keys(zip.entries).join(', '));
+
+    log('getEntry 開始');
+    const [ssXml, wbXml, relsXml] = await Promise.all([
+      getEntry(zip, 'xl/sharedStrings.xml'),
+      getEntry(zip, 'xl/workbook.xml'),
+      getEntry(zip, 'xl/_rels/workbook.xml.rels'),
+    ]);
+    log('ssXml=' + (ssXml ? ssXml.length + 'chars' : 'null'));
+    log('wbXml=' + (wbXml ? wbXml.length + 'chars' : 'null'));
+    log('relsXml=' + (relsXml ? relsXml.length + 'chars' : 'null'));
+
+    log('parseSharedStrings 開始');
+    const ss = parseSharedStrings(ssXml);
+    log('ss.length=' + ss.length);
+
+    log('parseWorkbookSheets 開始');
+    const sheets = parseWorkbookSheets(wbXml, relsXml);
+    log('sheets=' + JSON.stringify(sheets));
+
+    const result = {};
+    for (const sheet of sheets) {
+      log('シート読み込み: ' + sheet.name + ' / ' + sheet.file);
+      const wsXml = await getEntry(zip, 'xl/worksheets/' + sheet.file);
+      log('wsXml=' + (wsXml ? wsXml.length + 'chars' : 'null'));
+      const rows = parseWorksheet(wsXml, ss);
+      log('rows.length=' + rows.length);
+      result[sheet.name] = parseRows(rows);
+      log('records.length=' + result[sheet.name].length);
+    }
+    return result;
+  } catch(e) {
+    console.error('[XLSX ERROR] ' + e.message + '\n' + e.stack);
+    throw e;
+  }
+}
+
+function parseRows(rows) {
+  const records = [];
+  let currentRole = '', currentType = '';
+  const lastVal = ['', '', '', '', ''];
+
+  function clean(v) {
+    if (v == null) return '';
+    return String(v).replace(/\s+/g, ' ').trim();
+  }
+
+  // フォーマット判定: A列空のデータ行が多い→Format1(教員)、A列ありデータ行→Format2(事務職員等)
+  let fmt1 = 0, fmt2 = 0;
+  for (const row of rows) {
+    const v0 = clean(row[0]), v1 = clean(row[1]), v2 = clean(row[2]);
+    if (!v0 && v1 && v2) fmt1++;
+    if (v0 && (v1 || !v1) && v2 && v0 !== '新') fmt2++;
+  }
+  const isFormat2 = fmt2 > fmt1 * 1.5;
+
+  let currentGrade = '';
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const [v0, v1, v2, v3, v4] = [0,1,2,3,4].map(j => {
+      const v = clean(row[j]);
+      if (v === '〃') return lastVal[j];
+      if (v) lastVal[j] = v;
+      return v;
+    });
+
+    if (isFormat2) {
+      // Format2: 事務職員等形式（A列にデータ）
+      if (!v0) continue;
+      const mRole = v0.match(/^[\d１-９]+\s*[　\s]+(.+)/);
+      if (mRole) {
+        currentRole = mRole[1].replace(/\s+/g,'').trim();
+        currentType = ''; currentGrade = '';
+        continue;
+      }
+      // 区分行: v1・v2なし
+      if (!v1 && !v2) {
+        if (/級$|職員$/.test(v0)) { currentGrade = v0; currentType = ''; }
+        else { currentType = v0.replace(/[①②③④⑤]/g,'').trim(); }
+        continue;
+      }
+      // ヘッダ行スキップ
+      if (v0 === '新' && v1 === '旧') continue;
+      // データ行: v2に氏名
+      const name = v2.replace(/\s/g,'');
+      if (!name) continue;
+      const gradePrefix = currentGrade ? currentGrade + '・' : '';
+      records.push({
+        role: currentRole,
+        move_type: gradePrefix + currentType,
+        school: v0.replace(/\n/g,' '),
+        current_post: v1.replace(/\n/g,' '),
+        name,
+        note: v3,
+      });
+
+    } else {
+      // Format1: 教員形式（A列空のデータ行）
+      if (v0) {
+        const mRole = v0.match(/^[\d１-９]+\s*[　\s]+(.+)/);
+        if (mRole) {
+          currentRole = mRole[1].replace(/\s+/g,'').replace(/なし.*$/,'').trim();
+          currentType = '';
+        }
+        const mType = v0.match(/^[(（][\d１-９]+[)）]\s*(.+)/);
+        if (mType) {
+          let t = mType[1].replace(/\s+/g,'').replace(/なし.*$/,'').trim();
+          t = t.split(/[（\(]\d+[）\)]/)[0].replace(/[①②③④⑤⑥⑦⑧⑨⑩]+/g,'').trim();
+          currentType = t;
+        }
+      } else if (v1 && (v2 || v3)) {
+        if (/学\s*[　]*校\s*[　]*名|転\s*任\s*校|新\s*職\s*名/.test(v1)) continue;
+        if (/氏\s*[　]*名/.test(v3) && v3.length < 6) continue;
+        const isSpacedName = v2 && v2.replace(/\s/g,'').length <= 6 && !v2.includes('校');
+        let name, currentPost, note;
+        if (isSpacedName) {
+          name = v2.replace(/\s/g,'');
+          currentPost = '';
+          note = v3;
+        } else {
+          currentPost = v2;
+          name = v3.replace(/\s/g,'');
+          note = v4;
+        }
+        if (!name) continue;
+        if (currentType === '退職' && !currentPost) currentPost = v1;
+        records.push({ role: currentRole, move_type: currentType, school: v1, current_post: currentPost, name, note });
+      }
+    }
+  }
+  return records;
+}
+
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  readFile(file);
+}
+
+// ── File handling ──
+function readFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'xlsx') { showToast('Excel（.xlsx）ファイルを選択してください'); return; }
+
+  document.getElementById('loadingOverlay').classList.add('show');
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = await parseExcel(new Uint8Array(e.target.result));
+      const label = file.name.replace(/\.[^.]+$/, '');
+      loadData(data, label);
+    } catch(err) {
+      showToast('読み込みに失敗しました: ' + err.message);
+      console.error(err);
+    } finally {
+      document.getElementById('loadingOverlay').classList.remove('show');
+    }
+  };
+  reader.onerror = () => {
+    document.getElementById('loadingOverlay').classList.remove('show');
+    showToast('ファイルの読み込みに失敗しました');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Drag and drop
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  document.getElementById('dragOverlay').classList.add('show');
+});
+document.addEventListener('dragleave', e => {
+  if (!e.relatedTarget) document.getElementById('dragOverlay').classList.remove('show');
+});
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  document.getElementById('dragOverlay').classList.remove('show');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 4000);
+}
+
+// ── Start ──
+init();
+</script>
+</body>
+</html>

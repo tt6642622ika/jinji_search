@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>香川県人事異動速報 検索システム</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Meiryo","Yu Gothic","メイリオ",sans-serif; background: #f0f4f8; color: #333; font-size: 14px; }
+
+  header {
+    background: linear-gradient(135deg, #1a3a6b, #2d6a9f);
+    color: white; padding: 18px 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  header .title-area { flex: 1; }
+  header h1 { font-size: 1.35em; font-weight: bold; }
+  header p { font-size: 0.82em; opacity: 0.85; margin-top: 4px; }
+
+  /* File upload area in header */
+  .upload-area {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.15);
+    border: 2px dashed rgba(255,255,255,0.5);
+    border-radius: 8px; padding: 10px 16px;
+    cursor: pointer; transition: background 0.2s;
+    min-width: 260px;
+  }
+  .upload-area:hover { background: rgba(255,255,255,0.25); border-color: white; }
+  .upload-area.dragover { background: rgba(255,255,255,0.35); border-color: white; }
+  .upload-area input[type=file] { display: none; }
+  .upload-text { font-size: 0.82em; line-height: 1.4; }
+  .upload-text strong { display: block; font-size: 0.95em; }
+  .upload-text span { opacity: 0.8; }
+
+  .file-loaded {
+    background: rgba(39,174,96,0.3);
+    border-color: rgba(255,255,255,0.8);
+  }
+
+  /* Loading overlay */
+  #loadingOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 9999;
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    color: white; font-size: 1.1em;
+  }
+  #loadingOverlay.show { display: flex; }
+  .spinner {
+    width: 48px; height: 48px; border: 5px solid rgba(255,255,255,0.3);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 18px; }
+
+  .search-card, .filter-card, .result-card {
+    background: white; border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 16px;
+  }
+  .search-card, .filter-card { padding: 22px 24px; }
+
+  .card-title {
+    font-size: 0.92em; font-weight: bold; color: #1a3a6b;
+    border-left: 4px solid #2d6a9f; padding-left: 10px; margin-bottom: 14px;
+  }
+
+  .search-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px; margin-bottom: 14px;
+  }
+  @media(max-width:700px){ .search-grid{ grid-template-columns:1fr; } }
+
+  label { display:block; font-size:0.78em; font-weight:bold; color:#555; margin-bottom:5px; }
+
+  .search-mode-toggle { display:flex; flex-direction:column; gap:4px; }
+  .toggle-label { display:flex; align-items:center; gap:6px; font-size:0.85em; color:#444; cursor:pointer; min-height:28px; }
+  .toggle-label input[type=radio] { accent-color:#2d6a9f; width:15px; height:15px; cursor:pointer; font-size:initial !important; }
+  input[type=text] {
+    width:100%; padding:9px 11px; border:1px solid #ccc; border-radius:6px;
+    font-size:0.92em; font-family:inherit; transition:border 0.2s;
+  }
+  input[type=text]:focus { outline:none; border-color:#2d6a9f; box-shadow:0 0 0 3px rgba(45,106,159,0.15); }
+
+  .btn-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button { padding:9px 22px; border:none; border-radius:6px; font-size:0.9em; font-family:inherit; cursor:pointer; transition:background 0.2s; }
+  .btn-clear { background:#eee; color:#555; }
+  .btn-clear:hover { background:#ddd; }
+  .btn-export { background:#27ae60; color:white; }
+  .btn-export:hover { background:#1e8449; }
+  .stats { font-size:0.82em; color:#888; margin-left:auto; }
+
+  .filter-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .filter-actions { display:flex; gap:8px; margin-left:auto; }
+  .btn-sm {
+    padding:5px 14px; font-size:0.8em; border-radius:5px;
+    border:1px solid #ccc; background:white; cursor:pointer; font-family:inherit;
+  }
+  .btn-sm:hover { background:#f0f4f8; }
+
+  .group-grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;
+  }
+  .group-box { border:1px solid #e0e8f0; border-radius:8px; overflow:hidden; }
+  .group-header {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:#e8f0f8; border-bottom:1px solid #d0dcea;
+    cursor:pointer; user-select:none;
+  }
+  .group-header:hover { background:#dce8f5; }
+  .group-label { font-weight:bold; font-size:0.88em; color:#1a3a6b; flex:1; }
+  .group-count { font-size:0.75em; color:#666; }
+  .group-toggle { font-size:0.75em; color:#999; }
+  .group-items { padding:8px 10px; display:flex; flex-direction:column; gap:4px; }
+  .group-items.collapsed { display:none; }
+  .check-item {
+    display:flex; align-items:center; gap:7px; padding:3px 4px; border-radius:4px; cursor:pointer;
+  }
+  .check-item:hover { background:#f5f9ff; }
+  .check-item input[type=checkbox] { cursor:pointer; accent-color:#2d6a9f; width:14px; height:14px; }
+  .check-item span { font-size:0.85em; flex:1; }
+  .check-item .cnt { font-size:0.75em; color:#aaa; white-space:nowrap; }
+
+  .result-header {
+    background:#1a3a6b; color:white; padding:11px 18px;
+    display:flex; justify-content:space-between; align-items:center; font-size:0.88em;
+  }
+  .result-count { font-weight:bold; font-size:1.05em; }
+
+  table { width:100%; border-collapse:collapse; font-size:0.86em; }
+  thead tr { background:#e8f0f8; }
+  th { padding:10px 13px; text-align:left; font-weight:bold; color:#1a3a6b; border-bottom:2px solid #2d6a9f; white-space:nowrap; }
+  td { padding:9px 13px; border-bottom:1px solid #eee; vertical-align:top; }
+  tr:hover td { background:#f5f9ff; }
+  tr:last-child td { border-bottom:none; }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.76em; font-weight:bold; white-space:nowrap; }
+  .badge-section { background:#dce8f5; color:#1a3a6b; }
+  .badge-status { background:#e8f5e9; color:#2e7d32; }
+  .highlight { background:#fff59d; border-radius:2px; }
+  .name-cell { font-weight:bold; white-space:nowrap; }
+
+  .no-results { text-align:center; padding:60px 20px; color:#aaa; font-size:1.05em; }
+  .no-results span { display:block; font-size:2em; margin-bottom:10px; }
+
+  /* Welcome state */
+  .welcome {
+    text-align:center; padding:80px 20px; color:#aaa;
+  }
+  .welcome h2 { font-size:1.1em; color:#666; margin-bottom:8px; }
+  .welcome p { font-size:0.88em; }
+
+  /* error toast */
+  #errorToast {
+    display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#e74c3c; color:white; padding:12px 24px; border-radius:8px;
+    font-size:0.9em; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div>ファイルを読み込んでいます...</div>
+</div>
+<div id="errorToast"></div>
+
+<header>
+  <div class="title-area">
+    <h1>🗂 人事異動速報 検索システム</h1>
+    <p id="headerSub" style="display:none"></p>
+  </div>
+  <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()"
+       ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="onFileSelect(event)">
+    <div class="upload-text">
+      <strong>Excelファイルを選択</strong>
+      <span>またはここにドラッグ＆ドロップ<br>.xlsx / .xls</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- キーワード検索 -->
+  <div class="search-card">
+    <div class="card-title">キーワード検索</div>
+    <div class="search-grid">
+      <div>
+        <label>新所属（異動先）</label>
+        <input type="text" id="searchNew" placeholder="例：総務部、教育委員会..." oninput="onInput()">
+      </div>
+      <div>
+        <label>旧所属（異動前）</label>
+        <input type="text" id="searchOld" placeholder="例：知事公室、土木部..." oninput="onInput()">
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
+        <div class="search-mode-toggle">
+          <span style="font-size:0.78em;font-weight:bold;color:#555;display:block;margin-bottom:5px;">新旧所属の検索条件</span>
+          <label class="toggle-label">
+            <input type="radio" name="searchMode" value="and" checked onchange="onInput()"> AND（両方含む）
+          </label>
+          <label class="toggle-label">
+            <input type="radio" name="searchMode" value="or" onchange="onInput()"> OR（どちらか含む）
+          </label>
+        </div>
+      </div>
+      <div>
+        <label>氏　名</label>
+        <input type="text" id="searchName" placeholder="例：安藤、山田 太郎..." oninput="onInput()">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-clear" onclick="clearAll()"> クリア</button>
+      <button class="btn-export" onclick="exportCSV()"> CSV出力</button>
+      <span class="stats" id="statsLabel">—</span>
+    </div>
+  </div>
+
+  <!-- 区分フィルター -->
+  <div class="filter-card">
+    <div class="filter-top">
+      <div class="card-title" style="margin-bottom:0">区分フィルター</div>
+      <div class="filter-actions">
+        <button class="btn-sm" onclick="selectAllSections()">全選択</button>
+        <button class="btn-sm" onclick="clearAllSections()">全解除</button>
+      </div>
+    </div>
+    <div class="group-grid" id="groupGrid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- 結果テーブル -->
+  <div class="result-card">
+    <div class="result-header">
+      <span class="result-count" id="resultCount">—</span>
+      <span>※ キーワードはAND検索 ／ 区分は複数選択可</span>
+    </div>
+    <div id="tableContainer">
+      <div class="welcome">
+        <div class="welcome-icon">📋</div>
+        <h2>Excelファイルを読み込んでください</h2>
+        <p>右上のボタンから人事異動速報の.xlsxファイルを選択すると<br>自動的に読み込まれます</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──
+// Default section groups (auto-updated on file load)
+const DEFAULT_GROUPS = {"部長級": ["部長級配置換", "部長級出向", "部長級退職（３月３１日付）", "部長級役職定年", "部長級昇任"], "次長級": ["次長級配置換", "次長級退職（３月３１日付）", "次長級役職定年", "次長級採用", "次長級昇任"], "課長級": ["課長級配置換", "課長級出向", "課長級転任", "課長級退職（３月３１日付）", "課長級役職定年", "課長級昇任", "課長級兼職", "課長級兼職解除"], "課長補佐級": ["課長補佐級配置換", "課長補佐級出向", "課長補佐級転任", "課長補佐級退職（３月３１日付）", "課長補佐級昇任", "課長補佐級兼職", "課長補佐級兼職解除", "課長補佐級併任", "課長補佐級併任解除", "課長補佐級補職", "課長補佐級補職解除"], "係長級": ["係長級配置換", "係長級出向", "係長級転任", "係長級退職（３月３１日付）", "係長級昇任", "係長級採用", "係長級兼職", "係長級兼職解除", "係長級併任", "係長級併任解除", "係長級派遣研修"], "一般職員": ["一般職員配置換", "一般職員出向", "一般職員転任", "一般職員退職（３月３１日付）", "一般職員採用", "一般職員兼職", "一般職員併任", "一般職員併任解除"], "再任用": ["定年前再任用", "定年前再任用職員退職（３月３１日付）", "暫定再任用", "暫定再任用職員退職（３月３１日付）", "暫定再任用職員配置換"]};
+
+// Built-in data (令和7年4月1日付)
+const BUILTIN_DATA = [];
+const BUILTIN_LABEL = "";
+
+// ── State ──
+let RAW_DATA = [];
+let SECTION_GROUPS = JSON.parse(JSON.stringify(DEFAULT_GROUPS));
+let checkedSections = new Set();
+let collapsedGroups = {};
+let filtered = [];
+let dataLabel = '';
+
+// ── Init: start empty, wait for file upload ──
+RAW_DATA = [];
+buildGroupGrid();
+doSearch();
+
+// ── File handling ──
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.add('dragover');
+}
+function onDragLeave(e) {
+  document.getElementById('uploadArea').classList.remove('dragover');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) readExcel(file);
+}
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) readExcel(file);
+  e.target.value = '';
+}
+
+// ── カスタムXLSXパーサー（完全オフライン対応・外部ライブラリ不要）──
+
+function parseZip(buf) {
+  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const entries = {};
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('ZIPヘッダが見つかりません');
+  const cdOffset = view.getUint32(eocd + 16, true);
+  const cdSize   = view.getUint32(eocd + 12, true);
+  const dec = new TextDecoder('utf-8');
+  let pos = cdOffset;
+  while (pos < cdOffset + cdSize) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break;
+    const method     = view.getUint16(pos + 10, true);
+    const compSize   = view.getUint32(pos + 20, true);
+    const uncompSize = view.getUint32(pos + 24, true);
+    const fnLen      = view.getUint16(pos + 28, true);
+    const exLen      = view.getUint16(pos + 30, true);
+    const cmLen      = view.getUint16(pos + 32, true);
+    const localOff   = view.getUint32(pos + 42, true);
+    const name       = dec.decode(buf.slice(pos + 46, pos + 46 + fnLen));
+    entries[name]    = { localOff, compSize, uncompSize, method };
+    pos += 46 + fnLen + exLen + cmLen;
+  }
+  return { buf, view, entries };
+}
+
+async function getEntry(zip, name) {
+  const e = zip.entries[name];
+  if (!e) return null;
+  const { buf, view } = zip;
+  if (view.getUint32(e.localOff, true) !== 0x04034b50) throw new Error('不正なローカルヘッダ: ' + name);
+  const fnLen   = view.getUint16(e.localOff + 26, true);
+  const exLen   = view.getUint16(e.localOff + 28, true);
+  const dataOff = e.localOff + 30 + fnLen + exLen;
+  const comp    = buf.slice(dataOff, dataOff + e.compSize);
+  let raw;
+  if (e.method === 0) {
+    raw = comp;
+  } else if (e.method === 8) {
+    const ds = new DecompressionStream('deflate-raw');
+    const w = ds.writable.getWriter();
+    w.write(comp); w.close();
+    const chunks = [];
+    const r = ds.readable.getReader();
+    while (true) { const {done, value} = await r.read(); if (done) break; chunks.push(value); }
+    const total = chunks.reduce((s, c) => s + c.length, 0);
+    raw = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { raw.set(c, off); off += c.length; }
+  } else {
+    throw new Error('未対応の圧縮方式: ' + e.method);
+  }
+  return new TextDecoder('utf-8').decode(raw);
+}
+
+function parseSharedStrings(xml) {
+  if (!xml) return [];
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  return Array.from(doc.querySelectorAll('si')).map(si => {
+    const rs = si.querySelectorAll('r > t');
+    if (rs.length) return Array.from(rs).map(t => t.textContent).join('');
+    const t = si.querySelector('t');
+    return t ? t.textContent : '';
+  });
+}
+
+function colToIdx(col) {
+  let idx = 0;
+  for (let i = 0; i < col.length; i++) idx = idx * 26 + col.charCodeAt(i) - 64;
+  return idx - 1;
+}
+
+function parseWorksheet(xml, ss) {
+  if (!xml) return [];
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const rowMap = {};
+  let maxRow = 0, maxCol = 0;
+  doc.querySelectorAll('row').forEach(row => {
+    const r = parseInt(row.getAttribute('r'));
+    maxRow = Math.max(maxRow, r);
+    const cells = {};
+    row.querySelectorAll('c').forEach(c => {
+      const ref = c.getAttribute('r');
+      const col = colToIdx(ref.replace(/\d+/g, ''));
+      maxCol = Math.max(maxCol, col);
+      const t = c.getAttribute('t');
+      const v = c.querySelector('v');
+      if (!v && t !== 'inlineStr') { cells[col] = ''; return; }
+      if (t === 's') cells[col] = ss[parseInt(v.textContent)] ?? '';
+      else if (t === 'inlineStr') cells[col] = (c.querySelector('t') || {}).textContent ?? '';
+      else cells[col] = v ? v.textContent : '';
+    });
+    rowMap[r] = cells;
+  });
+  const rows = [];
+  for (let r = 1; r <= maxRow; r++) {
+    const cells = rowMap[r] || {};
+    rows.push(Array.from({length: maxCol + 1}, (_, c) => cells[c] !== undefined ? cells[c] : ''));
+  }
+  return rows;
+}
+
+async function readExcelData(buffer) {
+  const zip = parseZip(buffer);
+  const [ssXml, wbXml] = await Promise.all([
+    getEntry(zip, 'xl/sharedStrings.xml'),
+    getEntry(zip, 'xl/workbook.xml'),
+  ]);
+  const ss = parseSharedStrings(ssXml);
+  // Get first sheet name from workbook
+  const wbDoc = new DOMParser().parseFromString(wbXml, 'text/xml');
+  const firstSheet = wbDoc.querySelector('sheet');
+  const sheetName = firstSheet ? firstSheet.getAttribute('name') : 'Sheet1';
+  // Find sheet file via rels
+  const relsXml = await getEntry(zip, 'xl/_rels/workbook.xml.rels');
+  const relDoc = new DOMParser().parseFromString(relsXml, 'text/xml');
+  const NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const rid = firstSheet ? (firstSheet.getAttribute('r:id') || firstSheet.getAttributeNS(NS, 'id')) : 'rId1';
+  let sheetFile = 'sheet1.xml';
+  relDoc.querySelectorAll('Relationship').forEach(r => {
+    if (r.getAttribute('Id') === rid) sheetFile = r.getAttribute('Target').split('/').pop();
+  });
+  const wsXml = await getEntry(zip, 'xl/worksheets/' + sheetFile);
+  return { rows: parseWorksheet(wsXml, ss), sheetName };
+}
+
+function readExcel(file) {
+  if (!file.name.match(/\.xlsx$/i)) {
+    showError('Excelファイル（.xlsx）を選択してください');
+    return;
+  }
+  showLoading(true);
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const { rows: raw, sheetName } = await readExcelData(new Uint8Array(e.target.result));
+      const records = parseSheet(raw);
+      if (records.length === 0) {
+        showError('データが読み取れませんでした。ファイル形式をご確認ください。');
+        showLoading(false);
+        return;
+      }
+      const label = sheetName || file.name.replace(/\.xlsx$/i, '');
+      loadData(records, label);
+      document.getElementById('uploadArea').classList.add('file-loaded');
+      document.querySelector('#uploadArea .upload-text strong').textContent = file.name;
+      document.querySelector('#uploadArea .upload-text span').textContent = records.length + '件読み込み完了';
+    } catch(err) {
+      showError('読み込みエラー: ' + err.message);
+      console.error(err);
+    }
+    showLoading(false);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseSheet(raw) {
+  // Format expected: col0=section header, col1=新, col2=旧, col5=身分, col6=姓, col7=名
+  const records = [];
+  let currentSection = '';
+  for (const row of raw) {
+    const c0 = String(row[0]||'').trim();
+    const c1 = String(row[1]||'').trim();
+    const c2 = String(row[2]||'').trim();
+    const c5 = String(row[5]||'').trim();
+    const c6 = String(row[6]||'').trim();
+    const c7 = String(row[7]||'').trim();
+
+    // Section header: col0 has value, col1 is empty
+    if (c0 && !c1 && !c6) {
+      currentSection = c0;
+      continue;
+    }
+    // Header row
+    if (c1 === '新') continue;
+    // Data row: has name
+    if (c6) {
+      records.push({
+        section: currentSection,
+        new_post: c1.replace(/\n/g,' '),
+        old_post: c2.replace(/\n/g,' '),
+        status: c5,
+        name: (c6 + ' ' + c7).trim()
+      });
+    }
+  }
+  return records;
+}
+
+function loadData(records, label) {
+  RAW_DATA = records;
+  dataLabel = label;
+
+  // Rebuild section groups: keep default groups, add unknown sections to "その他"
+  SECTION_GROUPS = JSON.parse(JSON.stringify(DEFAULT_GROUPS));
+  const knownSections = new Set(Object.values(SECTION_GROUPS).flat());
+  const unknown = [...new Set(records.map(r=>r.section))].filter(s=>s && !knownSections.has(s));
+  if (unknown.length > 0) SECTION_GROUPS['その他'] = unknown;
+
+  // Reset state
+  checkedSections = new Set(records.map(r=>r.section));
+  collapsedGroups = {};
+
+  // Update header
+  document.getElementById('headerSub').textContent = label;
+
+  // Rebuild UI
+  buildGroupGrid();
+  doSearch();
+}
+
+// ── Section filter ──
+function getSectionCounts() {
+  const counts = {};
+  RAW_DATA.forEach(r => { counts[r.section] = (counts[r.section]||0)+1; });
+  return counts;
+}
+
+function buildGroupGrid() {
+  const counts = getSectionCounts();
+  const grid = document.getElementById('groupGrid');
+  grid.innerHTML = '';
+
+  for (const [groupName, sections] of Object.entries(SECTION_GROUPS)) {
+    const activeSections = sections.filter(s => counts[s]);
+    if (activeSections.length === 0) continue;
+
+    const groupTotal = activeSections.reduce((s,sec)=>s+(counts[sec]||0),0);
+    const allChecked = activeSections.every(s=>checkedSections.has(s));
+    const someChecked = activeSections.some(s=>checkedSections.has(s));
+    const isCollapsed = collapsedGroups[groupName] || false;
+
+    const box = document.createElement('div');
+    box.className = 'group-box';
+    const safeGroup = groupName.replace(/'/g,"\'");
+    box.innerHTML = `
+      <div class="group-header" onclick="toggleCollapse('${safeGroup}')">
+        <input type="checkbox"
+          ${allChecked?'checked':''}
+          onclick="event.stopPropagation();toggleGroup('${safeGroup}')"
+          id="grp_${groupName}"
+          style="cursor:pointer;accent-color:#2d6a9f;width:14px;height:14px;">
+        <span class="group-label">${groupName}</span>
+        <span class="group-count">${groupTotal}件</span>
+        <span class="group-toggle">${isCollapsed?'▶':'▼'}</span>
+      </div>
+      <div class="group-items ${isCollapsed?'collapsed':''}" id="items_${groupName}">
+        ${activeSections.map(sec=>`
+          <label class="check-item">
+            <input type="checkbox" value="${sec}"
+              ${checkedSections.has(sec)?'checked':''}
+              onchange="toggleSection('${sec.replace(/'/g,"\'")}',this.checked)">
+            <span>${sec}</span>
+            <span class="cnt">${counts[sec]||0}件</span>
+          </label>
+        `).join('')}
+      </div>`;
+    grid.appendChild(box);
+
+    const cb = box.querySelector(`#grp_${groupName}`);
+    if (!allChecked && someChecked) cb.indeterminate = true;
+  }
+}
+
+function toggleCollapse(g) {
+  collapsedGroups[g] = !collapsedGroups[g];
+  buildGroupGrid();
+}
+function toggleGroup(g) {
+  const sections = SECTION_GROUPS[g] || [];
+  const counts = getSectionCounts();
+  const active = sections.filter(s=>counts[s]);
+  const allChecked = active.every(s=>checkedSections.has(s));
+  active.forEach(s => { if(allChecked) checkedSections.delete(s); else checkedSections.add(s); });
+  doSearch(); buildGroupGrid();
+}
+function toggleSection(sec, checked) {
+  if (checked) checkedSections.add(sec); else checkedSections.delete(sec);
+  doSearch(); buildGroupGrid();
+}
+function selectAllSections() {
+  RAW_DATA.forEach(r=>checkedSections.add(r.section));
+  doSearch(); buildGroupGrid();
+}
+function clearAllSections() {
+  checkedSections.clear();
+  doSearch(); buildGroupGrid();
+}
+
+// ── Search ──
+function normalize(s) { return s ? s.replace(/\s/g,'').toLowerCase() : ''; }
+
+function doSearch() {
+  const qNew  = document.getElementById('searchNew').value.trim();
+  const qOld  = document.getElementById('searchOld').value.trim();
+  const qName = document.getElementById('searchName').value.trim();
+
+  if (RAW_DATA.length === 0) {
+    filtered = [];
+    render('', '', '');
+    return;
+  }
+
+  const mode = (document.querySelector('input[name=searchMode]:checked') || {value:'and'}).value;
+  filtered = RAW_DATA.filter(r => {
+    if (!checkedSections.has(r.section)) return false;
+    if (qNew || qOld) {
+      const matchNew = qNew ? normalize(r.new_post).includes(normalize(qNew)) : false;
+      const matchOld = qOld ? normalize(r.old_post).includes(normalize(qOld)) : false;
+      if (mode === 'and') {
+        if (qNew && !matchNew) return false;
+        if (qOld && !matchOld) return false;
+      } else {
+        // OR: 入力されている条件のうち少なくとも1つにマッチ
+        const hasNew = !!qNew, hasOld = !!qOld;
+        if (hasNew && hasOld && !matchNew && !matchOld) return false;
+        if (hasNew && !hasOld && !matchNew) return false;
+        if (!hasNew && hasOld && !matchOld) return false;
+      }
+    }
+    if (qName && !normalize(r.name).includes(normalize(qName))) return false;
+    return true;
+  });
+  render(qNew, qOld, qName);
+}
+function onInput() { doSearch(); }
+
+function clearAll() {
+  document.getElementById('searchNew').value = '';
+  document.getElementById('searchOld').value = '';
+  document.getElementById('searchName').value = '';
+  selectAllSections();
+}
+
+// ── Render ──
+function escapeHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function highlight(text, query) {
+  if (!query) return escapeHtml(text);
+  try {
+    const re = new RegExp(query.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+    return escapeHtml(text).replace(re,m=>`<mark class="highlight">${m}</mark>`);
+  } catch(e) { return escapeHtml(text); }
+}
+
+function render(qNew='', qOld='', qName='') {
+  const total = filtered.length;
+  const isEmpty = RAW_DATA.length === 0;
+  const countLabel = isEmpty ? '\uff0d' : total + ' 件';
+  document.getElementById('resultCount').textContent = countLabel;
+  document.getElementById('statsLabel').textContent = countLabel;
+
+  const container = document.getElementById('tableContainer');
+
+  if (RAW_DATA.length === 0) {
+    container.innerHTML = '<div class="welcome"><h2>Excelファイルを読み込んでください</h2><p>右上のボタンから人事異動速報の.xlsxファイルを選択してください</p></div>';
+    return;
+  }
+  if (total === 0) {
+    container.innerHTML = '<div class="no-results"><span>\uD83D\uDD0D</span>\u8A72\u5F53\u3059\u308B\u8077\u54E1\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F</div>';
+    return;
+  }
+
+  const rows = filtered.map(r=>`
+    <tr>
+      <td><span class="badge badge-section">${escapeHtml(r.section)}</span></td>
+      <td>${highlight(r.new_post,qNew)}</td>
+      <td>${highlight(r.old_post,qOld)}</td>
+      <td><span class="badge badge-status">${escapeHtml(r.status)}</span></td>
+      <td class="name-cell">${highlight(r.name,qName)}</td>
+    </tr>`).join('');
+
+  container.innerHTML = `
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>区　分</th><th>新　所　属</th><th>旧　所　属</th><th>身　分</th><th>氏　名</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function exportCSV() {
+  if (!filtered.length) return;
+  const bom = '\uFEFF';
+  const header = ['区分','新所属','旧所属','身分','氏名'];
+  const rows = filtered.map(r=>[r.section,r.new_post,r.old_post,r.status,r.name]
+    .map(v=>'"'+(v||'').replace(/"/g,'""')+'"').join(','));
+  const csv = bom+[header.join(','),...rows].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '香川県人事異動_検索結果.csv';
+  a.click();
+}
+
+function showLoading(v) {
+  document.getElementById('loadingOverlay').classList.toggle('show',v);
+}
+function showError(msg) {
+  const t = document.getElementById('errorToast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=>{ t.style.display='none'; }, 4000);
+}
+</script>
+</body>
+</html>
